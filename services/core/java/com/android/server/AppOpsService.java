@@ -162,8 +162,6 @@ public class AppOpsService extends IAppOpsService.Stub {
         public long time;
         public long rejectTime;
         public int nesting;
-        public int allowedCount;
-        public int ignoredCount;
 
         public Op(int _uid, String _packageName, int _op) {
             uid = _uid;
@@ -410,7 +408,7 @@ public class AppOpsService extends IAppOpsService.Stub {
                 Op curOp = pkgOps.valueAt(j);
                 resOps.add(new AppOpsManager.OpEntry(curOp.op, curOp.mode, curOp.time,
                         curOp.rejectTime, curOp.duration, curOp.proxyUid,
-                        curOp.proxyPackageName, curOp.allowedCount, curOp.ignoredCount));
+                        curOp.proxyPackageName));
             }
         } else {
             for (int j=0; j<ops.length; j++) {
@@ -421,7 +419,7 @@ public class AppOpsService extends IAppOpsService.Stub {
                     }
                     resOps.add(new AppOpsManager.OpEntry(curOp.op, curOp.mode, curOp.time,
                             curOp.rejectTime, curOp.duration, curOp.proxyUid,
-                            curOp.proxyPackageName, curOp.allowedCount, curOp.ignoredCount));
+                            curOp.proxyPackageName));
                 }
             }
         }
@@ -434,7 +432,7 @@ public class AppOpsService extends IAppOpsService.Stub {
             resOps = new ArrayList<>();
             for (int j=0; j<uidOps.size(); j++) {
                 resOps.add(new AppOpsManager.OpEntry(uidOps.keyAt(j), uidOps.valueAt(j),
-                        0, 0, 0, -1, null, 0, 0));
+                        0, 0, 0, -1, null));
             }
         } else {
             for (int j=0; j<ops.length; j++) {
@@ -444,7 +442,7 @@ public class AppOpsService extends IAppOpsService.Stub {
                         resOps = new ArrayList<>();
                     }
                     resOps.add(new AppOpsManager.OpEntry(uidOps.keyAt(index), uidOps.valueAt(index),
-                            0, 0, 0, -1, null, 0, 0));
+                            0, 0, 0, -1, null));
                 }
             }
         }
@@ -1098,7 +1096,6 @@ public class AppOpsService extends IAppOpsService.Stub {
             }
             Op op = getOpLocked(ops, code, true);
             if (isOpRestrictedLocked(uid, code, packageName)) {
-                op.ignoredCount++;
                 return AppOpsManager.MODE_IGNORED;
             }
             if (op.duration == -1) {
@@ -1126,7 +1123,6 @@ public class AppOpsService extends IAppOpsService.Stub {
                             + switchCode + " (" + code + ") uid " + uid + " package "
                             + packageName);
                     op.rejectTime = System.currentTimeMillis();
-                    op.ignoredCount++;
                     return switchOp.mode;
                 }
             }
@@ -1158,7 +1154,6 @@ public class AppOpsService extends IAppOpsService.Stub {
             }
             Op op = getOpLocked(ops, code, true);
             if (isOpRestrictedLocked(uid, code, resolvedPackageName)) {
-                op.ignoredCount++;
                 return AppOpsManager.MODE_IGNORED;
             }
             final int switchCode = AppOpsManager.opToSwitch(code);
@@ -1179,7 +1174,6 @@ public class AppOpsService extends IAppOpsService.Stub {
                         + switchCode + " (" + code + ") uid " + uid + " package "
                         + resolvedPackageName);
                 op.rejectTime = System.currentTimeMillis();
-                op.ignoredCount++;
                 return switchOp.mode;
             }
             if (DEBUG) Log.d(TAG, "startOperation: allowing code " + code + " uid " + uid
@@ -1330,13 +1324,10 @@ public class AppOpsService extends IAppOpsService.Stub {
                     if (pkgUid != uid) {
                         // Oops!  The package name is not valid for the uid they are calling
                         // under.  Abort.
-                        if (!"com.google.android.gms".equals(packageName)) {
-                            // Google GMS is our overlord. Don't spam the log
-                            RuntimeException ex = new RuntimeException("Package uid doesn't match or it is not valid");
-                            ex.fillInStackTrace();
-                            Slog.w(TAG, "Bad call: specified package " + packageName
-                                    + " under uid " + uid + " but it is really " + pkgUid, ex);
-                        }
+                        RuntimeException ex = new RuntimeException("here");
+                        ex.fillInStackTrace();
+                        Slog.w(TAG, "Bad call: specified package " + packageName
+                                + " under uid " + uid + " but it is really " + pkgUid, ex);
                         return null;
                     }
                 } finally {
@@ -1566,20 +1557,7 @@ public class AppOpsService extends IAppOpsService.Stub {
 
             String tagName = parser.getName();
             if (tagName.equals("op")) {
-                int code = Integer
-                        .parseInt(parser.getAttributeValue(null, "n"));
-                // use op name string if it exists
-                String codeNameStr = parser.getAttributeValue(null, "ns");
-                if (codeNameStr != null) {
-                    // returns OP_NONE if it could not be mapped
-                    code = AppOpsManager.nameToOp(codeNameStr);
-                }
-                // skip op codes that are out of bounds
-                if (code == AppOpsManager.OP_NONE
-                        || code >= AppOpsManager._NUM_OP) {
-                    continue;
-                }
-                Op op = new Op(uid, pkgName, code);
+                Op op = new Op(uid, pkgName, Integer.parseInt(parser.getAttributeValue(null, "n")));
                 String mode = parser.getAttributeValue(null, "m");
                 if (mode != null) {
                     op.mode = Integer.parseInt(mode);
@@ -1604,14 +1582,7 @@ public class AppOpsService extends IAppOpsService.Stub {
                 if (proxyPackageName != null) {
                     op.proxyPackageName = proxyPackageName;
                 }
-                String allowed = parser.getAttributeValue(null, "ac");
-                if (allowed != null) {
-                    op.allowedCount = Integer.parseInt(allowed);
-                }
-                String ignored = parser.getAttributeValue(null, "ic");
-                if (ignored != null) {
-                    op.ignoredCount = Integer.parseInt(ignored);
-                }
+
                 UidState uidState = getUidStateLocked(uid, true);
                 if (uidState.pkgOps == null) {
                     uidState.pkgOps = new ArrayMap<>();
@@ -1714,7 +1685,6 @@ public class AppOpsService extends IAppOpsService.Stub {
                             AppOpsManager.OpEntry op = ops.get(j);
                             out.startTag(null, "op");
                             out.attribute(null, "n", Integer.toString(op.getOp()));
-                            out.attribute(null, "ns", AppOpsManager.opToName(op.getOp()));
                             if (op.getMode() != AppOpsManager.opToDefaultMode(op.getOp())) {
                                 out.attribute(null, "m", Integer.toString(op.getMode()));
                             }
@@ -1737,14 +1707,6 @@ public class AppOpsService extends IAppOpsService.Stub {
                             String proxyPackageName = op.getProxyPackageName();
                             if (proxyPackageName != null) {
                                 out.attribute(null, "pp", proxyPackageName);
-                            }
-                            int allowed = op.getAllowedCount();
-                            if (allowed != 0) {
-                                out.attribute(null, "ac", Integer.toString(allowed));
-                            }
-                            int ignored = op.getIgnoredCount();
-                            if (ignored != 0) {
-                                out.attribute(null, "ic", Integer.toString(ignored));
                             }
                             out.endTag(null, "op");
                         }
@@ -2721,28 +2683,6 @@ public class AppOpsService extends IAppOpsService.Stub {
                 }
             }
             return true;
-        }
-    }
-
-    @Override
-    public void resetCounters() {
-        mContext.enforcePermission(android.Manifest.permission.UPDATE_APP_OPS_STATS,
-                Binder.getCallingPid(), Binder.getCallingUid(), null);
-        synchronized (this) {
-            for (int i=0; i<mUidStates.size(); i++) {
-                final UidState uidState = mUidStates.valueAt(i);
-                for (Map.Entry<String, Ops> ent : uidState.pkgOps.entrySet()) {
-                    String packageName = ent.getKey();
-                    Ops pkgOps = ent.getValue();
-                    for (int j=0; j<pkgOps.size(); j++) {
-                        Op curOp = pkgOps.valueAt(j);
-                        curOp.allowedCount = 0;
-                        curOp.ignoredCount = 0;
-                    }
-                }
-            }
-            // ensure the counter reset persists
-            scheduleWriteLocked();
         }
     }
 }

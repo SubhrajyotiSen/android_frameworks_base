@@ -253,9 +253,7 @@ public class AppOpsManager {
     /** @hide Answer incoming phone calls */
     public static final int OP_ANSWER_PHONE_CALLS = 69;
     /** @hide */
-    public static final int OP_BOOT_COMPLETED = 70;
-    /** @hide */
-    public static final int _NUM_OP = 71;
+    public static final int _NUM_OP = 70;
 
     /** Access to coarse location information. */
     public static final String OPSTR_COARSE_LOCATION = "android:coarse_location";
@@ -367,9 +365,6 @@ public class AppOpsManager {
     /** Answer incoming phone calls */
     public static final String OPSTR_ANSWER_PHONE_CALLS
             = "android:answer_phone_calls";
-    /** Required for start at boot **/
-    private static final String OPSTR_BOOT_COMPLETED =
-            "android:boot_completed";
 
     // Warning: If an permission is added here it also has to be added to
     // com.android.packageinstaller.permission.utils.EventLogger
@@ -497,8 +492,7 @@ public class AppOpsManager {
             OP_REQUEST_INSTALL_PACKAGES,
             OP_PICTURE_IN_PICTURE,
             OP_INSTANT_APP_START_FOREGROUND,
-            OP_ANSWER_PHONE_CALLS,
-            OP_BOOT_COMPLETED,
+            OP_ANSWER_PHONE_CALLS
     };
 
     /**
@@ -576,7 +570,6 @@ public class AppOpsManager {
             OPSTR_PICTURE_IN_PICTURE,
             OPSTR_INSTANT_APP_START_FOREGROUND,
             OPSTR_ANSWER_PHONE_CALLS,
-            OPSTR_BOOT_COMPLETED,
     };
 
     /**
@@ -654,7 +647,6 @@ public class AppOpsManager {
             "PICTURE_IN_PICTURE",
             "INSTANT_APP_START_FOREGROUND",
             "ANSWER_PHONE_CALLS",
-            "BOOT_COMPLETED",
     };
 
     /**
@@ -732,7 +724,6 @@ public class AppOpsManager {
             null, // no permission for entering picture-in-picture on hide
             Manifest.permission.INSTANT_APP_FOREGROUND_SERVICE,
             Manifest.permission.ANSWER_PHONE_CALLS,
-            Manifest.permission.RECEIVE_BOOT_COMPLETED,
     };
 
     /**
@@ -811,7 +802,6 @@ public class AppOpsManager {
             null, // ENTER_PICTURE_IN_PICTURE_ON_HIDE
             null, // INSTANT_APP_START_FOREGROUND
             null, // ANSWER_PHONE_CALLS
-            null, //BOOT_COMPLETED
     };
 
     /**
@@ -889,7 +879,6 @@ public class AppOpsManager {
             false, // ENTER_PICTURE_IN_PICTURE_ON_HIDE
             false, // INSTANT_APP_START_FOREGROUND
             false, // ANSWER_PHONE_CALLS
-            false, // BOOT_COMPLETED
     };
 
     /**
@@ -966,7 +955,6 @@ public class AppOpsManager {
             AppOpsManager.MODE_ALLOWED,  // OP_PICTURE_IN_PICTURE
             AppOpsManager.MODE_DEFAULT,  // OP_INSTANT_APP_START_FOREGROUND
             AppOpsManager.MODE_ALLOWED, // ANSWER_PHONE_CALLS
-            AppOpsManager.MODE_ALLOWED, // OP_BOOT_COMPLETED
     };
 
     /**
@@ -1047,7 +1035,6 @@ public class AppOpsManager {
             false, // OP_PICTURE_IN_PICTURE
             false,
             false, // ANSWER_PHONE_CALLS
-            false, // OP_BOOT_COMPLETED
     };
 
     /**
@@ -1059,8 +1046,6 @@ public class AppOpsManager {
      * Mapping from a permission to the corresponding app op.
      */
     private static HashMap<String, Integer> sPermToOp = new HashMap<>();
-
-    private static HashMap<String, Integer> sNameToOp = new HashMap<String, Integer>();
 
     static {
         if (sOpToSwitch.length != _NUM_OP) {
@@ -1105,9 +1090,6 @@ public class AppOpsManager {
                 sPermToOp.put(sOpPerms[op], op);
             }
         }
-        for (int i=0; i<_NUM_OP; i++) {
-            sNameToOp.put(sOpNames[i], i);
-        }
     }
 
     /**
@@ -1137,15 +1119,6 @@ public class AppOpsManager {
             }
         }
         throw new IllegalArgumentException("Unknown operation string: " + op);
-    }
-
-    /**
-     * Map a non-localized name for the operation back to the Op number
-     * @hide
-     */
-    public static int nameToOp(String name) {
-        Integer val = sNameToOp.get(name);
-        return val != null ? val : OP_NONE;
     }
 
     /**
@@ -1275,11 +1248,9 @@ public class AppOpsManager {
         private final int mDuration;
         private final int mProxyUid;
         private final String mProxyPackageName;
-        private final int mAllowedCount;
-        private final int mIgnoredCount;
 
         public OpEntry(int op, int mode, long time, long rejectTime, int duration,
-                int proxyUid, String proxyPackage, int allowedCount, int ignoredCount) {
+                int proxyUid, String proxyPackage) {
             mOp = op;
             mMode = mode;
             mTime = time;
@@ -1287,8 +1258,6 @@ public class AppOpsManager {
             mDuration = duration;
             mProxyUid = proxyUid;
             mProxyPackageName = proxyPackage;
-            mAllowedCount = allowedCount;
-            mIgnoredCount = ignoredCount;
         }
 
         public int getOp() {
@@ -1323,14 +1292,6 @@ public class AppOpsManager {
             return mProxyPackageName;
         }
 
-        public int getAllowedCount() {
-            return mAllowedCount;
-        }
-
-        public int getIgnoredCount() {
-            return mIgnoredCount;
-        }
-
         @Override
         public int describeContents() {
             return 0;
@@ -1345,8 +1306,6 @@ public class AppOpsManager {
             dest.writeInt(mDuration);
             dest.writeInt(mProxyUid);
             dest.writeString(mProxyPackageName);
-            dest.writeInt(mAllowedCount);
-            dest.writeInt(mIgnoredCount);
         }
 
         OpEntry(Parcel source) {
@@ -1357,8 +1316,6 @@ public class AppOpsManager {
             mDuration = source.readInt();
             mProxyUid = source.readInt();
             mProxyPackageName = source.readString();
-            mAllowedCount = source.readInt();
-            mIgnoredCount = source.readInt();
         }
 
         public static final Creator<OpEntry> CREATOR = new Creator<OpEntry>() {
@@ -1997,14 +1954,6 @@ public class AppOpsManager {
             return mService.isOperationActive(code, uid, packageName);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /** @hide */
-    public void resetCounters() {
-        try {
-            mService.resetCounters();
-        } catch (RemoteException e) {
         }
     }
 }
